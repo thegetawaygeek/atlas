@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Replace all 30 perspective fields in sites.js with updated content from PDF."""
+import re, sys, pypdf
+sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+SITES_JS = r"C:\Users\jaysc\Downloads\ATLAS\src\data\sites.js"
+PDF_PATH = r"C:\Users\jaysc\Downloads\ATLAS\The NEW Mystery_Perspective Sections Plus The Record - 30 Sites.pdf"
+
+SITE_ORDER = [
+    ('Poverty Point',            'poverty-point'),
+    ('Teotihuacan',              'teotihuacan'),
+    ('Palenque',                 'palenque'),
+    ('Chichén Itzá',             'chichen-itza'),
+    ('Chavín de Huántar',        'chavin'),
+    ('Nazca Lines',              'nazca'),
+    ('Machu Picchu',             'machupicchu'),
+    ('Saqsaywaman',              'saqsaywaman'),
+    ('Tiwanaku and Puma Punku',  'tiwanaku'),
+    ('Skara Brae',               'skara-brae'),
+    ('Rosslyn Chapel',           'rosslyn-chapel'),
+    ('Newgrange',                'newgrange'),
+    ('Stonehenge',               'stonehenge'),
+    ('Goseck Circle',            'goseck'),
+    ('Ġgantija Temples',         'ggantija'),
+    ('Ħal Saflieni Hypogeum',    'hal-saflieni'),
+    ('Great Zimbabwe',           'great-zimbabwe'),
+    ('Derinkuyu',                'derinkuyu'),
+    ('Göbekli Tepe',             'gobekli-tepe'),
+    ('Karahan Tepe',             'karahan-tepe'),
+    ('Petra',                    'petra'),
+    ('Great Pyramid',            'giza'),
+    ('Dendera',                  'dendera'),
+    ('Karnak',                   'karnak'),
+    ('Mohenjo-daro',             'mohenjo-daro'),
+    ('Kailasa Temple at Ellora', 'ellora'),
+    ('Vitthala Temple at Hampi', 'hampi'),
+    ('Borobudur',                'borobudur'),
+    ('Angkor Wat',               'angkor-wat'),
+    ('Longyou Caves',            'longyou'),
+]
+
+
+def clean_pdf_text(pdf_path):
+    reader = pypdf.PdfReader(pdf_path)
+    all_text = ''
+    for page in reader.pages:
+        all_text += (page.extract_text() or '') + '\n'
+    all_text = re.sub(r'  +', ' ', all_text)
+    lines = all_text.split('\n')
+    result = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if (stripped and ' ' not in stripped and
+                i + 1 < len(lines) and lines[i + 1].strip() == ''):
+            if result and result[-1].strip() and not result[-1].strip().isupper():
+                result[-1] = result[-1].rstrip() + ' ' + stripped
+            else:
+                result.append(stripped)
+            i += 2
+            continue
+        result.append(line)
+        i += 1
+    return '\n'.join(result)
+
+
+def extract_perspectives(clean_text):
+    pattern = re.compile(
+        r'The Getaway Geek Perspective\s*\n(.*?)(?=\nThe Record|\Z)',
+        re.DOTALL
+    )
+    matches = list(pattern.finditer(clean_text))
+    perspectives = {}
+    for idx, m in enumerate(matches):
+        content = m.group(1).strip()
+        content = re.sub(r'\n{3,}', '\n\n', content)
+        content = '\n'.join(l.strip() for l in content.split('\n'))
+        content = content.strip()
+        _, site_id = SITE_ORDER[idx]
+        perspectives[site_id] = content
+    return perspectives
+
+
+def escape_for_js(text):
+    text = text.replace('\\', '\\\\')
+    text = text.replace('"', '\\"')
+    text = text.replace('\n', '\\n')
+    return text
+
+
+def patch_perspective(js_text, site_id, new_text):
+    site_pattern = re.compile(
+        r'(  \{[^{]*?id:\s*"' + re.escape(site_id) + r'".*?  \},)',
+        re.DOTALL
+    )
+    match = site_pattern.search(js_text)
+    if not match:
+        print(f'  ERROR: site entry not found for {site_id}')
+        return js_text, False
+
+    site_block = match.group(1)
+    escaped = escape_for_js(new_text)
+    field_re = re.compile(r'(    perspective:\s*)"((?:[^"\\]|\\.)*)"')
+    new_block, count = field_re.subn(
+        lambda m: m.group(1) + '"' + escaped + '"',
+        site_block
+    )
+    if count == 0:
+        print(f'  ERROR: perspective field not found for {site_id}')
+        return js_text, False
+    return js_text[:match.start()] + new_block + js_text[match.end():], True
+
+
+def main():
+    print('=' * 60)
+    print('ATLAS Perspective Patcher — 30 sites')
+    print('=' * 60)
+
+    print('Extracting from PDF...')
+    clean_text = clean_pdf_text(PDF_PATH)
+    perspectives = extract_perspectives(clean_text)
+    print(f'Extracted {len(perspectives)} Perspective sections\n')
+
+    print('Patching sites.js...')
+    with open(SITES_JS, 'r', encoding='utf-8') as f:
+        js_text = f.read()
+
+    success, failed = [], []
+    for _, site_id in SITE_ORDER:
+        text = perspectives.get(site_id, '')
+        if not text:
+            print(f'  SKIP {site_id} — no content')
+            failed.append(site_id)
+            continue
+        js_text, ok = patch_perspective(js_text, site_id, text)
+        if ok:
+            print(f'  [OK]  {site_id}')
+            success.append(site_id)
+        else:
+            print(f'  [FAIL] {site_id}')
+            failed.append(site_id)
+
+    with open(SITES_JS, 'w', encoding='utf-8') as f:
+        f.write(js_text)
+
+    print()
+    print('=' * 60)
+    print(f'Done — {len(success)} updated, {len(failed)} failed')
+    if failed:
+        print(f'Failed: {failed}')
+    print('=' * 60)
+
+
+if __name__ == '__main__':
+    main()

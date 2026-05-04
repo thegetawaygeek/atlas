@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  /* Foundation */
+  --color-cream: #FAF8F5;
+  --color-white-card: #FFFFFF;
+
+  /* Gold / Amber accent palette */
+  --color-gold: #B8960C;
+  --color-gold-light: #F5F0E0;
+  --color-gold-text: #96790A;
+
+  /* Text colors */
+  --color-text-dark: #1A1A1A;
+  --color-text-hook: #2A2A2A;
+  --color-text-body: #3D3D3D;
+  --color-text-muted: #7A7A7A;
+
+  /* Access badge colors */
+  --color-accessible: #2D8A4E;
+  --color-accessible-bg: #E8F5ED;
+  --color-moderate: #C47A20;
+  --color-moderate-bg: #FDF0E0;
+  --color-expedition: #B05234;
+  --color-expedition-bg: #FAEAE5;
+
+  /* Map pin */
+  --color-pin: #B8960C;
+
+  /* Font stack */
+  --font-sans: -apple-system, 'Helvetica Neue', 'Segoe UI', Arial, sans-serif;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-cream);
+  color: var(--color-text-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
